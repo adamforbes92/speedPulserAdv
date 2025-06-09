@@ -5,37 +5,37 @@
 #define baudSerial 115200  // baud rate for serial feedback
 #define serialDebug 1      // for Serial feedback - disable on release(!) ** CAN CHANGE THIS **
 #define ChassisCANDebug 1  // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
-#define testSpeedo 0       // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
+#define testSpeedo 2       // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
 
-#define hasNeedleSweep 0  // for needle sweep ** CAN CHANGE THIS **
-#define sweepSpeed 18     // for needle sweep rate of change (in ms) ** CAN CHANGE THIS **
-#define speedType 0      // 0 = ECU, 1 = DSG, 2 = GPS, 3 = ABS
+#define hasNeedleSweep 1  // for needle sweep ** CAN CHANGE THIS **
+#define sweepSpeed 25     // for needle sweep rate of change (in ms) ** CAN CHANGE THIS **
+#define speedType 0       // 0 = ECU, 1 = DSG, 2 = GPS, 3 = ABS
 
-#define incomingType 1      // 0 = Can2Cluster; 1 = hall sensor  ** CAN CHANGE THIS **
-#define averageFilter 6    // number of samples to take to average/remove erraticness from freq. changes.  Higher number, more samples ** CAN CHANGE THIS **
+#define incomingType 0      // 0 = CAN; 1 = hall sensor  ** CAN CHANGE THIS **
+#define averageFilter 6     // number of samples to take to average/remove erraticness from freq. changes.  Higher number, more samples ** CAN CHANGE THIS **
 #define durationReset 1000  // duration of 'last sample' before reset speed back to zero
 
-#define maxRPM 230    // max RPM in Hz for the cluster (for needle sweep) ** CAN CHANGE THIS **
+#define maxRPM 230       // max RPM in Hz for the cluster (for needle sweep) ** CAN CHANGE THIS **
 #define minFreqHall 0    // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
 #define maxFreqHall 200  // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
 #define minFreqCAN 0     // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
 #define maxFreqCAN 250   // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
 
-#define minSpeed 0    // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
-#define maxSpeed 200  // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
-#define RPMLimit 7000   // rpm ** CAN CHANGE THIS **
+#define minSpeed 0     // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+#define maxSpeed 200   // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+#define RPMLimit 7000  // rpm ** CAN CHANGE THIS **
 
 // setup - step changes (for needle sweep)
-#define stepRPM 1
+#define stepRPM 1.2
 #define stepSpeed 1
 #define speedOffset 0          // for adjusting a GLOBAL FIXED speed offset - so the entire range is offset by X value.  Might be easier to use this than the input max freq.
 #define speedOffsetPositive 1  // set to 1 for the above value to be ADDED, set to zero for the above value to be SUBTRACTED
 
-#define pinMotorOutput 2  // pin for motor PWM output - needs stepped up to 5v for the motor (NPN transistor on the board).  Needs to support LED PWM(!)
-#define pinMotorInput 18  // pin for motor PWM output - needs stepped up to 5v for the motor (NPN transistor on the board).  Needs to support LED PWM(!)
-#define pinSpeedInput 26   // interrupt supporting pin for speed input.  ESP32 C3 doesn't like them all, so if changing test this first(!)
-#define pinDirection 19   // motor direction pin (currently unused) but here for future revisions
-#define pinOnboardLED 8   // for feedback for input checking / flash LED on input.  ESP32 C3 is Pin 8
+#define pinMotorOutput 21  // pin for motor PWM output - needs stepped up to 5v for the motor (NPN transistor on the board).  Needs to support LED PWM(!)
+#define pinMotorInput 18   // pin for motor speed input.  Assumed 5v, might be bad, should have checked(!)...
+#define pinSpeedInput 26   // interrupt supporting pin for hall speed input
+#define pinDirection 19    // motor direction pin (currently unused) but here for future revisions
+#define pinOnboardLED 2    // for feedback for input checking / flash LED on input.  ESP32 C3 is Pin 8.  Devkit is 2
 
 #define pinRX_CAN 16  // pin output for SN65HVD230 (CAN_RX)
 #define pinTX_CAN 17  // pin output for SN65HVD230 (CAN_TX)
@@ -54,11 +54,11 @@
 #endif
 
 // Baud Rates
-#define baudSerial 9600  // baud rate for debug
-#define baudGPS 9600       // baud rate for the GPS device
-extern uint16_t vehicleRPM = 1;      // current RPM.  If no CAN, this will catch dividing by zero by the map function
-extern uint16_t calcSpeed = 0;            // temp var for calculating speed
-extern uint16_t vehicleSpeed = 1;         // current Speed.  If no CAN, this will catch dividing by zero by the map function
+#define baudSerial 9600            // baud rate for debug
+#define baudGPS 9600               // baud rate for the GPS device
+extern uint16_t vehicleRPM = 1;    // current RPM.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t calcSpeed = 0;     // temp var for calculating speed
+extern uint16_t vehicleSpeed = 1;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
 
 // DSG variables
 #define PI 3.141592653589793
@@ -70,7 +70,7 @@ extern uint16_t vehicleSpeed = 1;         // current Speed.  If no CAN, this wil
 #define LEVER_TIPTRONIC_ON 0xE    // tiptronic
 #define LEVER_TIPTRONIC_UP 0xA    // tiptronic up
 #define LEVER_TIPTRONIC_DOWN 0xB  // tiptronic down
-#define gearPause 20                                             // Send packets every x ms ** CAN CHANGE THIS **
+#define gearPause 20              // Send packets every x ms ** CAN CHANGE THIS **
 #define rpmPause 50
 
 extern double ecuSpeed = 0;  // ECU speed (from analog speed sensor)
@@ -83,8 +83,8 @@ extern uint8_t gear = 0;   // current gear from DSG
 extern uint8_t lever = 0;  // shifter position
 extern uint8_t gear_raw = 0;
 extern uint8_t lever_raw = 0;
-uint32_t lastMillis = 0;                                                     // Counter for sending frames x ms
-uint32_t lastMillis2 = 0; 
+uint32_t lastMillis = 0;  // Counter for sending frames x ms
+uint32_t lastMillis2 = 0;
 
 // ECU variables
 extern bool vehicleEML = false;  // current EML light status
@@ -93,6 +93,7 @@ extern bool vehicleReverse = false;
 extern bool vehiclePark = false;
 
 extern unsigned long dutyCycleIncoming = 0;  // Duty Cycle % coming in from Can2Cluster or Hall
+extern unsigned long dutyCycleMotor = 0;  // Duty Cycle % coming in from Can2Cluster or Hall
 extern long tempSpeed = 0;                   // for testing only, set fixed speed in kmh.  Can set to 0 to speed up / slow down on repeat with testSpeed enabled
 extern long pwmFrequency = 10000;            // PWM Hz (motor supplied is 10kHz)
 extern long dutyCycle = 0;                   // starting / default Hz: 0% is motor 'off'
@@ -115,6 +116,9 @@ uint8_t motorPerformance[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 // for 10 bit resolution - Ford Escort
 //uint8_t motorPerformance[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 12, 15, 18, 20, 21, 22, 23, 25, 26, 28, 29, 30, 31, 32, 33, 35, 36, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52, 54, 55, 57, 56, 58, 60, 61, 62, 63, 65, 66, 68, 69, 69, 70, 71, 72, 73, 74, 77, 78, 79, 80, 81, 82, 83, 84, 85, 85, 87, 88, 89, 90, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 104, 105, 105, 106, 106, 107, 108, 109, 110, 111, 112, 113, 113, 113, 113, 114, 114, 115, 115, 116, 117, 118, 119, 119, 119, 120, 121, 121, 122, 123, 123, 124, 125, 125, 126, 127, 128, 129, 130, 130, 131, 131, 132, 133, 133, 135, 135, 136, 138, 139, 139, 140, 140, 141, 142, 142, 143, 143, 143, 144, 144, 144, 145, 145, 146, 146, 147, 148, 149, 150, 150, 151, 151, 152, 152, 152, 153, 153, 154, 154, 155, 155, 156, 157, 158, 159, 159, 160, 160, 161, 161, 161, 162, 162, 163, 164, 164, 165, 165, 165, 165, 166, 166, 167, 167, 168, 168, 169, 169, 169, 170, 170, 170, 170, 170, 170, 171, 171, 171, 172, 172, 173, 173, 174, 174, 174, 174, 175, 175, 176, 177, 177, 178, 179, 179, 179, 179, 179, 179, 179, 180, 180, 180, 181, 181, 181, 181, 181, 182, 182, 182, 182, 182, 183, 183, 183, 183, 184, 184, 185, 185, 186, 186, 186, 187, 188, 189, 189, 189, 190, 190, 190, 190, 191, 191, 191, 191, 191, 191, 191, 191, 191, 192, 193, 193, 193, 193, 193, 194, 194, 195, 195, 195, 196, 196, 197, 197, 198, 199, 199, 199, 200, 200, 200, 200, 200, 200, 200, 201, 201, 201, 201, 201, 202, 202, 203, 203, 203, 204, 204, 205, 205, 206, 206, 206, 206, 207, 207, 207, 207, 208, 208, 208, 209, 209, 209, 209, 209, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 211, 211, 211, 211, 211, 212, 212, 213, 213, 214, 214, 214, 214, 215, 215, 215, 215, 215, 215, 216, 216, 217, 218, 218, 219, 219, 219, 219, 219, 220, 220, 220, 220, 220, 221, 222 };
+
+// for 10 bit resolution - Darren's Ford Escort
+//uint8_t motorPerformance[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 10, 12, 14, 15, 16, 17, 18, 19, 19, 20, 21, 22, 22, 23, 25, 26, 26, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 36, 36, 37, 38, 39, 39, 40, 41, 42, 42, 44, 44, 45, 45, 46, 47, 48, 48, 49, 50, 50, 51, 51, 52, 53, 54, 54, 54, 55, 56, 57, 57, 58, 58, 59, 60, 60, 61, 61, 62, 63, 64, 64, 65, 65, 66, 67, 67, 68, 68, 69, 69, 70, 70, 71, 71, 71, 72, 73, 74, 74, 74, 75, 75, 76, 76, 77, 77, 78, 78, 79, 80, 80, 81, 81, 81, 82, 82, 83, 84, 84, 84, 85, 85, 86, 87, 87, 88, 88, 88, 89, 89, 89, 90, 90, 91, 91, 91, 92, 92, 93, 94, 94, 94, 94, 95, 95, 95, 96, 96, 97, 97, 97, 98, 98, 98, 99, 99, 99, 100, 100, 101, 101, 101, 101, 102, 102, 103, 103, 104, 104, 104, 104, 105, 105, 105, 106, 107, 107, 107, 107, 108, 108, 108, 108, 109, 109, 109, 110, 110, 111, 111, 112, 112, 112, 112, 113, 113, 113, 113, 114, 114, 114, 114, 114, 115, 115, 115, 116, 116, 116, 116, 117, 117, 117, 117, 118, 118, 118, 118, 119, 119, 119, 119, 120, 120, 120, 121, 121, 121, 122, 122, 122, 122, 123, 123, 123, 123, 124, 124, 124, 124, 124, 124, 125, 125, 125, 125, 125, 126, 126, 126, 126, 126, 126, 127, 127, 127, 127, 128, 128, 128, 128, 128, 129, 129, 129, 129, 129, 129, 129, 130, 130, 130, 130, 131, 131, 131, 131, 132, 132, 132, 132, 132, 133, 133, 133, 134, 134, 134, 134, 134, 135, 135, 135, 135, 135, 135, 135, 136, 136, 136, 136, 137, 137, 137, 137, 138, 138, 138, 138, 138, 139, 139, 139, 139, 139, 139, 139, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140 };
 
 // for 10 bit resolution - Fiat Uno: 1st is full 160mph range, but starts at 40mph.  2nd is sensible range, starting at 20mph, but stops at 110mph.
 //uint8_t motorPerformance[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 12, 15, 18, 20, 21, 22, 23, 25, 26, 28, 29, 30, 31, 32, 33, 35, 36, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52, 54, 55, 57, 56, 58, 60, 61, 62, 63, 65, 66, 68, 69, 69, 70, 71, 72, 73, 74, 77, 78, 79, 80, 81, 82, 83, 84, 85, 85, 87, 88, 89, 90, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 104, 105, 105, 106, 106, 107, 108, 109, 110, 111, 112, 113, 113, 113, 113, 114, 114, 115, 115, 116, 117, 118, 119, 119, 119, 120, 121, 121, 122, 123, 123, 124, 125, 125, 126, 127, 128, 129, 130, 130, 131, 131, 132, 133, 133, 135, 135, 136, 138, 139, 139, 140, 140, 141, 142, 142, 143, 143, 143, 144, 144, 144, 145, 145, 146, 146, 147, 148, 149, 150, 150, 151, 151, 152, 152, 152, 153, 153, 154, 154, 155, 155, 156, 157, 158, 159, 159, 160, 160, 161, 161, 161, 162, 162, 163, 164, 164, 165, 165, 165, 165, 166, 166, 167, 167, 168, 168, 169, 169, 169, 170, 170, 170, 170, 170, 170, 171, 171, 171, 172, 172, 173, 173, 174, 174, 174, 174, 175, 175, 176, 177, 177, 178, 179, 179, 179, 179, 179, 179, 179, 180, 180, 180, 181, 181, 181, 181, 181, 182, 182, 182, 182, 182, 183, 183, 183, 183, 184, 184, 185, 185, 186, 186, 186, 187, 188, 189, 189, 189, 190, 190, 190, 190, 191, 191, 191, 191, 191, 191, 191, 191, 191, 192, 193, 193, 193, 193, 193, 194, 194, 195, 195, 195, 196, 196, 197, 197, 198, 199, 199, 199, 200, 200, 200, 200, 200, 200, 200, 201, 201, 201, 201, 201, 202, 202, 203, 203, 203, 204, 204, 205, 205, 206, 206, 206, 206, 207, 207, 207, 207, 208, 208, 208, 209, 209, 209, 209, 209, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 211, 211, 211, 211, 211, 212, 212, 213, 213, 214, 214, 214, 214, 215, 215, 215, 215, 215, 215, 216, 216, 217, 218, 218, 219, 219, 219, 219, 219, 220, 220, 220, 220, 220, 221, 222 };

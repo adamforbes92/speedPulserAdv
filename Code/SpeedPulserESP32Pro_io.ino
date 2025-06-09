@@ -2,17 +2,37 @@ void basicInit() {
   DEBUG_PRINTLN("Initialising SpeedPulser...");
 
   DEBUG_PRINTLN("Setting up LED Output...");
-  pinMode(pinOnboardLED, OUTPUT);
-  digitalWrite(pinOnboardLED, ledOnboard);
+  //pinMode(pinOnboardLED, OUTPUT);
+  //digitalWrite(pinOnboardLED, ledOnboard);
   DEBUG_PRINTLN("Set up LED Output!");
+
+  DEBUG_PRINTLN("Setting up Coil Output...");
+  pinMode(pinCoil, OUTPUT);
+  DEBUG_PRINTLN("Set up Coil Output!");
 
   DEBUG_PRINTLN("Setting up PWM...");
   motorPWM = new ESP32_FAST_PWM(pinMotorOutput, pwmFrequency, dutyCycle, 0, pwmResolution);  // begin PWM with a base freq. of 10kHz @ 100% duty (mot. off)
   DEBUG_PRINTLN("Set up PWM!");
 
   DEBUG_PRINTLN("Setting up Speed Interrupt...");
-  attachInterrupt(digitalPinToInterrupt(pinSpeedInput), incomingHz, FALLING);  //setup interrupt to toggle pin on change
-  DEBUG_PRINTLN("Set up speed interrupt!");
+  attachInterrupt(digitalPinToInterrupt(pinSpeedInput), incomingHz, FALLING);          //setup interrupt to toggle pin on change
+  attachInterrupt(digitalPinToInterrupt(pinMotorInput), incomingMotorSpeed, FALLING);  //setup interrupt to toggle pin on change
+  DEBUG_PRINTLN("Set up Speed Interrupt!");
+
+  DEBUG_PRINTLN("Setting up Speed Interrupt...");
+  canInit();
+  DEBUG_PRINTLN("Set up Speed Interrupt!");
+
+  if (speedType == 2) {
+    DEBUG_PRINTLN("Setting up GPS Module...");
+    ss.begin(baudGPS);
+    DEBUG_PRINTLN("Set up GPS Module!");
+
+    DEBUG_PRINTLN(TinyGPSPlus::libraryVersion());
+    DEBUG_PRINTLN(F("Sats HDOP  Latitude   Longitude   Fix  Date       Time     Date Alt    Course Speed Card  Distance Course Card  Chars Sentences Checksum"));
+    DEBUG_PRINTLN(F("           (deg)      (deg)       Age                      Age  (m)    --- from GPS ----  ---- to London  ----  RX    RX        Fail"));
+    DEBUG_PRINTLN(F("----------------------------------------------------------------------------------------------------------------------------------------"));
+  }
 
   DEBUG_PRINTLN("Initialised SpeedPulser!");
 }
@@ -37,6 +57,17 @@ void testSpeed() {
       delay(sweepSpeed * 300);
     }
   }
+
+  vehicleRPM += 500;
+  vehicleSpeed += 10;
+
+  if (vehicleRPM > RPMLimit) {
+    vehicleRPM = 1000;
+    frequencyRPM = 1;
+  }
+  if (vehicleSpeed > maxSpeed) {
+    vehicleSpeed = 10;
+  }
 }
 
 void needleSweep() {
@@ -47,6 +78,7 @@ void needleSweep() {
 
     dutyCycle = findClosestMatch(i);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
+    setFrequencyRPM(i*stepRPM);
     delay(sweepSpeed);
   }
 
@@ -60,8 +92,10 @@ void needleSweep() {
 
     dutyCycle = findClosestMatch(i);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
+    setFrequencyRPM(i*stepRPM);
     delay(sweepSpeed);
   }
   delay(sweepSpeed);
   motorPWM->setPWM_manual(pinMotorOutput, 0);
+  setFrequencyRPM(0);
 }

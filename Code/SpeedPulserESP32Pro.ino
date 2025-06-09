@@ -33,7 +33,7 @@ V1.07 - added in 160mph clusters for MK2 Golfs (thanks to Charlie for calibratio
 todo - add WiFi connectivity for quick changing vars?
 */
 
-#include "speedPulserAdv_defs.h"
+#include "speedPulserESP32Pro_defs.h"
 
 ESP32_FAST_PWM* motorPWM;                              // for PWM control.  ESP Boards need to be V2.0.17 - the latest version has known issues with LEDPWM(!)
 RunningMedian samples = RunningMedian(averageFilter);  // for calculating median samples - there can be 'hickups' in the incoming signal, this helps remove them(!)
@@ -70,6 +70,15 @@ void incomingHz() {                                               // Interrupt 0
   ledCounter++;  // count LED counter - is used to flash onboard LED to show the presence of incoming pulses
 }
 
+void incomingMotorSpeed() {                                       // Interrupt 0 service routine
+  static unsigned long previousMicros = micros();                 // remember variable, initialize first time
+  unsigned long presentMicros = micros();                         // read microseconds
+  unsigned long revolutionTime = presentMicros - previousMicros;  // works fine with wrap-around of micros()
+  if (revolutionTime < 1000UL) return;                            // avoid divide by 0, also debounce, speed can't be over 60,000 was 1000UL
+  dutyCycleMotor = (60000000UL / revolutionTime) / 60;            // calculate
+  previousMicros = presentMicros;
+}
+
 // setup timers
 void setupTimer() {
   timer0 = timerBegin(0, 40, true);  //div 80
@@ -104,60 +113,61 @@ void setup() {
 }
 
 void loop() {
+  // check to see if in 'test mode' (testSpeedo = 1)
+  if (testSpeedo == 1) {
+    DEBUG_PRINTLN("Test Speedo = 1");
+    testSpeed();  // if tempSpeed > 0, set to fixed duty, else, run through available duties
+  }
+  if (testSpeedo == 2) {
+    DEBUG_PRINTLN("Test Speedo = 2");
+    vehicleRPM += 500;
+    vehicleSpeed += 10;
+
+    if (vehicleRPM > RPMLimit) {
+      vehicleRPM = 1000;
+      vehicleSpeed = 10;
+      frequencyRPM = 1;
+    }
+    if (vehicleSpeed > maxSpeed) {
+      vehicleSpeed = 10;
+      vehicleRPM = 1000;
+    }
+    delay(2000);
+  }
+
+  DEBUG_PRINTF("     dutyCycleMotor: %d", dutyCycleMotor);
+
   if (ledCounter > averageFilter) {
     ledOnboard = !ledOnboard;                 // flip-flop the led trigger
     digitalWrite(pinOnboardLED, ledOnboard);  // flash the LED to show the presence of incoming pulses
     ledCounter = 0;                           // reset the counter
   }
 
-  // todo:
-  // reset speed to zero if >durationReset
   if (millis() - lastPulse > durationReset) {
     motorPWM->setPWM_manual(pinMotorOutput, 0);
+    dutyCycle = 0;
+    dutyCycleIncoming = 0;
   }
 
-  // check to see if in 'test mode' (testSpeedo = 1)
-  if (testSpeedo) {
-    testSpeed();  // if tempSpeed > 0, set to fixed duty, else, run through available duties
-  }
-
-  if (!testSpeedo) {
-    if (dutyCycle != dutyCycleIncoming) {  // only update PWM IF speed has changed (can cause flicker otherwise)
+  if (testSpeedo == 0 || vehicleSpeed > 0) {
+    if ((dutyCycle != dutyCycleIncoming)) {  // only update PWM IF speed has changed (can cause flicker otherwise)
       switch (incomingType) {
-        case 0:  // can2cluster input
-          DEBUG_PRINTF("     DutyIncomingC2C: %d", dutyCycleIncoming);
-          dutyCycleIncoming = map(dutyCycleIncoming, minFreqCAN, maxFreqCAN, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
-          DEBUG_PRINTF("     DutyPostProc1C2C: %d", dutyCycle);
-
-          // build up the array to get the average of pulsers and ignore outliars
-          if (rawCount < averageFilter) {
-            samples.add(dutyCycleIncoming);
-            rawCount++;
-          }
-
-          if (rawCount >= averageFilter) {
-            dutyCycle = samples.getAverage(averageFilter / 2);
-            DEBUG_PRINTF("     getAverageC2C: %d", dutyCycle);
-
-            if (speedOffsetPositive) {
-              dutyCycle = dutyCycle + speedOffset;
+        case 0:  // can input
+          DEBUG_PRINTF("     SpeedIncomingCAN: %d", vehicleSpeed);
+          if (speedOffsetPositive) {
+            dutyCycle = vehicleSpeed + speedOffset;
+            dutyCycle = findClosestMatch(dutyCycle);
+            motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
+          } else {
+            if (dutyCycle - speedOffset > 0) {
+              dutyCycle = vehicleSpeed - speedOffset;
               dutyCycle = findClosestMatch(dutyCycle);
               motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
             } else {
-              if (dutyCycle - speedOffset > 0) {
-                dutyCycle = dutyCycle - speedOffset;
-                dutyCycle = findClosestMatch(dutyCycle);
-                motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-              } else {
-                motorPWM->setPWM_manual(pinMotorOutput, 0);
-              }
+              motorPWM->setPWM_manual(pinMotorOutput, 0);
             }
-
-            DEBUG_PRINTF("     FindClosetMatchC2C: %d", dutyCycle);
-
-            rawCount = 0;     // reset the counter
-            samples.clear();  // clear the array
           }
+          DEBUG_PRINTF("     FindClosetMatchC2C: %d", dutyCycle);
           break;
 
         case 1:  // hall sensor input
@@ -205,9 +215,7 @@ void loop() {
   // change the frequency of both RPM & Speed as per CAN information
   if ((millis() - lastMillis2) > rpmPause) {  // check to see if x ms (linPause) has elapsed - slow down the frames!
     lastMillis2 = millis();
-#if stateDebug
-    Serial.println(frequencyRPM);
-#endif
+    DEBUG_PRINTLN(frequencyRPM);
     setFrequencyRPM(frequencyRPM);  // minimum speed may command 0 and setFreq. will cause crash, so +1 to error 'catch'
   }
 }
