@@ -1,41 +1,56 @@
 #define _PWM_LOGLEVEL_ 0
 #include "ESP32_FastPWM.h"
 #include <RunningMedian.h>
+#include <Arduino.h>
+#include "TickTwo.h"      // for repeated tasks
+#include <Preferences.h>  // for eeprom/remember settings
+#include <ESPUI.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include "OneButton.h"  // for monitoring the stalk buttons - it's easier to use a lib. than parse each loop - and it counts hold presses
 
-#define baudSerial 115200  // baud rate for serial feedback
-#define serialDebug 1      // for Serial feedback - disable on release(!) ** CAN CHANGE THIS **
-#define ChassisCANDebug 1  // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
-#define testSpeedo 2       // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
+#define baudSerial 115200              // baud rate for serial feedback
+#define serialDebug 1                  // for Serial feedback - disable on release(!) ** CAN CHANGE THIS **
+#define serialDebugWifi 1              // for wifi feedback
+#define ChassisCANDebug 1              // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
+#define eepRefresh 2000                // EEPROM Refresh in ms
+#define wifiDisable 30000              // turn off WiFi in ms
+#define wifiHostName "SpeedPulserPro"  // the WiFi name
 
-#define hasNeedleSweep 1  // for needle sweep ** CAN CHANGE THIS **
-#define sweepSpeed 25     // for needle sweep rate of change (in ms) ** CAN CHANGE THIS **
-#define speedType 0       // 0 = ECU, 1 = DSG, 2 = GPS, 3 = ABS
+extern uint8_t testSpeedo = 2;  // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
+
+extern bool hasNeedleSweep = false;  // for needle sweep ** CAN CHANGE THIS **
+extern uint8_t sweepSpeed = 18;      // for needle sweep rate of change (in ms) ** CAN CHANGE THIS **
+extern uint8_t speedType = 0;        // 0 = ECU, 1 = DSG, 2 = GPS, 3 = ABS
 
 #define incomingType 0      // 0 = CAN; 1 = hall sensor  ** CAN CHANGE THIS **
 #define averageFilter 6     // number of samples to take to average/remove erraticness from freq. changes.  Higher number, more samples ** CAN CHANGE THIS **
-#define durationReset 1000  // duration of 'last sample' before reset speed back to zero
+#define durationReset 1500  // duration of 'last sample' before reset speed back to zero
 
-#define maxRPM 230       // max RPM in Hz for the cluster (for needle sweep) ** CAN CHANGE THIS **
-#define minFreqHall 0    // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
-#define maxFreqHall 200  // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
-#define minFreqCAN 0     // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
-#define maxFreqCAN 250   // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
+extern uint16_t minFreqHall = 0;    // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
+extern uint16_t maxFreqHall = 200;  // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
+extern uint16_t minFreqCAN = 0;     // min frequency for top speed using the 02J / 02M hall sensor  ** CAN CHANGE THIS **
+extern uint16_t maxFreqCAN = 200;   // max frequency for top speed using the 02J / 02M hall sensor ** CAN CHANGE THIS **
 
-#define minSpeed 0     // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
-#define maxSpeed 200   // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
-#define RPMLimit 7000  // rpm ** CAN CHANGE THIS **
+extern uint16_t minSpeed = 0;    // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+extern uint16_t maxSpeed = 200;  // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+extern uint16_t minRPM = 0;      // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+extern uint16_t maxRPM = 230;    // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
+
+extern uint16_t RPMLimit = 7000;  // rpm ** CAN CHANGE THIS **
 
 // setup - step changes (for needle sweep)
-#define stepRPM 1.2
-#define stepSpeed 1
-#define speedOffset 0          // for adjusting a GLOBAL FIXED speed offset - so the entire range is offset by X value.  Might be easier to use this than the input max freq.
-#define speedOffsetPositive 1  // set to 1 for the above value to be ADDED, set to zero for the above value to be SUBTRACTED
+extern float stepRPM = 1.2;
+extern float stepSpeed = 1;
+extern uint8_t speedOffset = 0;          // for adjusting a GLOBAL FIXED speed offset - so the entire range is offset by X value.  Might be easier to use this than the input max freq.
+extern bool speedOffsetPositive = true;  // set to 1 for the above value to be ADDED, set to zero for the above value to be SUBTRACTED
 
 #define pinMotorOutput 21  // pin for motor PWM output - needs stepped up to 5v for the motor (NPN transistor on the board).  Needs to support LED PWM(!)
 #define pinMotorInput 18   // pin for motor speed input.  Assumed 5v, might be bad, should have checked(!)...
 #define pinSpeedInput 26   // interrupt supporting pin for hall speed input
 #define pinDirection 19    // motor direction pin (currently unused) but here for future revisions
 #define pinOnboardLED 2    // for feedback for input checking / flash LED on input.  ESP32 C3 is Pin 8.  Devkit is 2
+#define pinCal 36          // pin for calibration button
 
 #define pinRX_CAN 16  // pin output for SN65HVD230 (CAN_RX)
 #define pinTX_CAN 17  // pin output for SN65HVD230 (CAN_TX)
@@ -56,9 +71,12 @@
 // Baud Rates
 #define baudSerial 9600            // baud rate for debug
 #define baudGPS 9600               // baud rate for the GPS device
-extern uint16_t vehicleRPM = 1;    // current RPM.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t vehicleRPM = 0;    // current RPM.  If no CAN, this will catch dividing by zero by the map function
 extern uint16_t calcSpeed = 0;     // temp var for calculating speed
-extern uint16_t vehicleSpeed = 1;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t vehicleSpeed = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t vehicleSpeedCAN = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t vehicleSpeedGPS = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
+extern bool tempNeedleSweep = false;
 
 // DSG variables
 #define PI 3.141592653589793
@@ -93,8 +111,9 @@ extern bool vehicleReverse = false;
 extern bool vehiclePark = false;
 
 extern unsigned long dutyCycleIncoming = 0;  // Duty Cycle % coming in from Can2Cluster or Hall
-extern unsigned long dutyCycleMotor = 0;  // Duty Cycle % coming in from Can2Cluster or Hall
+extern unsigned long dutyCycleMotor = 0;     // Duty Cycle % coming in from Can2Cluster or Hall
 extern long tempSpeed = 0;                   // for testing only, set fixed speed in kmh.  Can set to 0 to speed up / slow down on repeat with testSpeed enabled
+extern long tempRPM = 0;                   // for testing only, set fixed speed in kmh.  Can set to 0 to speed up / slow down on repeat with testSpeed enabled
 extern long pwmFrequency = 10000;            // PWM Hz (motor supplied is 10kHz)
 extern long dutyCycle = 0;                   // starting / default Hz: 0% is motor 'off'
 extern int pwmResolution = 10;               // number of bits for motor resolution.  Can use 8 or 10, although 8 makes it a bit 'jumpy'
@@ -159,3 +178,33 @@ extern int ledCounter = 0;
 
 extern void canInit(void);
 extern void onBodyRX(void);
+
+//Function Prototypes
+extern void connectWifi();
+extern void disconnectWifi();
+extern void setupUI();
+extern void textCallback(Control *sender, int type);
+extern void generalCallback(Control *sender, int type);
+extern void updateCallback(Control *sender, int type);
+extern void getTimeCallback(Control *sender, int type);
+extern void graphAddCallback(Control *sender, int type);
+extern void graphClearCallback(Control *sender, int type);
+extern void randomString(char *buf, int len);
+extern void extendedCallback(Control *sender, int type, void *param);
+
+extern void readEEP();
+extern void writeEEP();
+
+//UI handles
+uint16_t bool_NeedleSweep, int16_sweepSpeed, int16_stepSpeed, int16_stepRPM;
+uint16_t bool_testSpeedo, int16_tempSpeed, bool_testRPM;
+
+uint16_t bool_positiveOffset, int16_speedOffset;
+uint16_t int16_minSpeed, int16_maxSpeed, int16_minHall, int16_maxHall, int16_minCAN, int16_maxCAN;
+uint16_t int16_minRPM, int16_maxRPM, int16_tempRPM;
+
+int label_speed, label_speedGPS, label_speedCAN, label_RPMCAN;
+
+uint16_t graph;
+uint16_t mainTime;
+volatile bool updates = false;

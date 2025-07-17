@@ -8,6 +8,7 @@ void basicInit() {
 
   DEBUG_PRINTLN("Setting up Coil Output...");
   pinMode(pinCoil, OUTPUT);
+  pinMode(pinCal, INPUT);
   DEBUG_PRINTLN("Set up Coil Output!");
 
   DEBUG_PRINTLN("Setting up PWM...");
@@ -78,7 +79,7 @@ void needleSweep() {
 
     dutyCycle = findClosestMatch(i);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-    setFrequencyRPM(i*stepRPM);
+    setFrequencyRPM(i * stepRPM);
     delay(sweepSpeed);
   }
 
@@ -92,7 +93,7 @@ void needleSweep() {
 
     dutyCycle = findClosestMatch(i);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-    setFrequencyRPM(i*stepRPM);
+    setFrequencyRPM(i * stepRPM);
     delay(sweepSpeed);
   }
   delay(sweepSpeed);
