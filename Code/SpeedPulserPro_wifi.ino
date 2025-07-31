@@ -61,9 +61,24 @@ void setupUI() {
   ESPUI.addControl(Min, "", "0", Dark, int16_tempRPM);
   ESPUI.addControl(Max, "", "9000", Dark, int16_tempRPM);
 
+  ESPUI.addControl(Separator, "Cluster Limits:", "", Dark, tabAdvancedRPM);
+  int16_clusterRPM = ESPUI.addControl(Slider, "Maximum RPM", String(clusterRPMLimit), Dark, tabAdvancedRPM, generalCallback);
+  ESPUI.addControl(Min, "", "0", Dark, int16_clusterRPM);
+  ESPUI.addControl(Max, "", "9000", Dark, int16_clusterRPM);
+  ESPUI.addControl(Button, "Reset", "Reset", Dark, tabAdvancedRPM, extendedCallback, (void *)15);
+
+  ESPUI.addControl(Separator, "RPM Scaling:", "", Dark, tabAdvancedRPM);
+  int16_RPMScaling = ESPUI.addControl(Slider, "RPM Scaling", String(maxRPM), Dark, tabAdvancedRPM, generalCallback);
+  ESPUI.addControl(Min, "", "0", Dark, int16_RPMScaling);
+  ESPUI.addControl(Max, "", "500", Dark, int16_RPMScaling);
+  ESPUI.addControl(Button, "Reset", "Reset", Dark, tabAdvancedRPM, extendedCallback, (void *)16);
+
   // create advanced speed tab
   auto tabAdvancedCAN = ESPUI.addControl(Tab, "", "CAN & GPS");
   ESPUI.addControl(Separator, "Testing", "", Dark, tabAdvancedCAN);
+  ESPUI.addControl(Separator, "Incoming Speed (Hall):", "", Dark, tabAdvancedCAN);
+  label_speedHall = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+
   ESPUI.addControl(Separator, "Incoming Speed (GPS):", "", Dark, tabAdvancedCAN);
   label_speedGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
 
@@ -120,35 +135,57 @@ void generalCallback(Control *sender, int type) {
     case 4:
       sweepSpeed = sender->value.toInt();
       break;
+    case 7:
+      stepRPM = sender->value.toInt();
+      break;
     case 10:
+      stepSpeed = sender->value.toInt();
+      break;
+
+
+    case 16:
       testSpeedo = sender->value.toInt();
       break;
-    case 11:
+    case 17:
       tempSpeed = sender->value.toInt();
       break;
-    case 15:
+    case 21:
       speedOffsetPositive = sender->value.toInt();
       break;
-    case 16:
+    case 22:
       speedOffset = sender->value.toInt();
       break;
-    case 20:
+    case 26:
       minSpeed = sender->value.toInt();
       break;
-    case 21:
+    case 27:
       maxSpeed = sender->value.toInt();
       break;
-    case 26:
+    case 32:
       minFreqHall = sender->value.toInt();
       break;
-    case 27:
+    case 33:
       maxFreqHall = sender->value.toInt();
       break;
-    case 32:
+
+
+    case 38:
       minFreqCAN = sender->value.toInt();
       break;
-    case 33:
+    case 39:
       maxFreqCAN = sender->value.toInt();
+      break;
+    case 45:
+      testRPM = sender->value.toInt();
+      break;
+    case 46:
+      tempRPM = sender->value.toInt();
+      break;
+    case 50:
+      clusterRPMLimit = sender->value.toInt();
+      break;
+    case 55:
+      maxRPM = sender->value.toInt();
       break;
   }
 }
@@ -169,12 +206,12 @@ void extendedCallback(Control *sender, int type, void *param) {
 
   uint8_t tempID = int(sender->id);
   switch (tempID) {
-    case 7:
+    case 13:
       if (type == B_UP) {
         tempNeedleSweep = true;
       }
       break;
-    case 24:
+    case 30:
       if (type == B_UP) {
         minSpeed = 0;
         maxSpeed = 200;
@@ -182,7 +219,7 @@ void extendedCallback(Control *sender, int type, void *param) {
         ESPUI.updateSlider(int16_maxSpeed, maxSpeed);
       }
       break;
-    case 30:
+    case 36:
       if (type == B_UP) {
         minFreqHall = 0;
         maxFreqHall = 200;
@@ -190,12 +227,24 @@ void extendedCallback(Control *sender, int type, void *param) {
         ESPUI.updateSlider(int16_maxHall, maxFreqHall);
       }
       break;
-    case 36:
+    case 42:
       if (type == B_UP) {
         minFreqCAN = 0;
         maxFreqCAN = 200;
         ESPUI.updateSlider(int16_minCAN, minFreqCAN);
         ESPUI.updateSlider(int16_maxCAN, maxFreqCAN);
+      }
+      break;
+    case 53:
+      if (type == B_UP) {
+        clusterRPMLimit = 7000;
+        ESPUI.updateSlider(int16_clusterRPM, clusterRPMLimit);
+      }
+      break;
+    case 58:
+      if (type == B_UP) {
+        maxRPM = 230;
+        ESPUI.updateSlider(int16_RPMScaling, maxRPM);
       }
       break;
   }
@@ -208,6 +257,7 @@ void connectWifi() {
   Serial.println("Begin wifi...");
 
   Serial.println("\nCreating access point...");
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(wifiHostName);

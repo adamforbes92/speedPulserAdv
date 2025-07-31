@@ -26,7 +26,7 @@ void onBodyRX(const CAN_message_t& frame) {
       // frame[2] (byte 3) > motor speed low byte
       // frame[3] (byte 4) > motor speed high byte
       // frame[4] (byte 3) > khm speed?
-      vehicleRPM = ((frame.buf[3] << 8) | frame.buf[2]) * 0.25;  // conversion: 0.25*HEX
+      vehicleRPMCAN = ((frame.buf[3] << 8) | frame.buf[2]) * 0.25;  // conversion: 0.25*HEX
       break;
 
     case MOTOR2_ID:
@@ -53,7 +53,7 @@ void onBodyRX(const CAN_message_t& frame) {
       break;
 
     case BRAKES3_ID:
-      absSpeed = ((frame.buf[3] << 8) | frame.buf[2]) * 1.28;  // conversion: 0.25*HEX
+      vehicleSpeedCAN = ((frame.buf[3] << 8) | frame.buf[2]) * 1.28;  // conversion: 0.25*HEX
       break;
 
     case mWaehlhebel_1_ID:

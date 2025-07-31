@@ -2,8 +2,8 @@ void basicInit() {
   DEBUG_PRINTLN("Initialising SpeedPulser...");
 
   DEBUG_PRINTLN("Setting up LED Output...");
-  //pinMode(pinOnboardLED, OUTPUT);
-  //digitalWrite(pinOnboardLED, ledOnboard);
+  pinMode(pinOnboardLED, OUTPUT);
+  digitalWrite(pinOnboardLED, ledOnboard);
   DEBUG_PRINTLN("Set up LED Output!");
 
   DEBUG_PRINTLN("Setting up Coil Output...");
@@ -24,32 +24,21 @@ void basicInit() {
   canInit();
   DEBUG_PRINTLN("Set up Speed Interrupt!");
 
-  if (speedType == 2) {
-    DEBUG_PRINTLN("Setting up GPS Module...");
-    ss.begin(baudGPS);
-    DEBUG_PRINTLN("Set up GPS Module!");
+  DEBUG_PRINTLN("Setting up GPS Module...");
+  ss.begin(baudGPS);
+  DEBUG_PRINTLN("Set up GPS Module!");
 
-    DEBUG_PRINTLN(TinyGPSPlus::libraryVersion());
-    DEBUG_PRINTLN(F("Sats HDOP  Latitude   Longitude   Fix  Date       Time     Date Alt    Course Speed Card  Distance Course Card  Chars Sentences Checksum"));
-    DEBUG_PRINTLN(F("           (deg)      (deg)       Age                      Age  (m)    --- from GPS ----  ---- to London  ----  RX    RX        Fail"));
-    DEBUG_PRINTLN(F("----------------------------------------------------------------------------------------------------------------------------------------"));
-  }
+  DEBUG_PRINTLN(TinyGPSPlus::libraryVersion());
+  DEBUG_PRINTLN(F("Sats HDOP  Latitude   Longitude   Fix  Date       Time     Date Alt    Course Speed Card  Distance Course Card  Chars Sentences Checksum"));
+  DEBUG_PRINTLN(F("           (deg)      (deg)       Age                      Age  (m)    --- from GPS ----  ---- to London  ----  RX    RX        Fail"));
+  DEBUG_PRINTLN(F("----------------------------------------------------------------------------------------------------------------------------------------"));
 
   DEBUG_PRINTLN("Initialised SpeedPulser!");
 }
 
 void testSpeed() {
   // check to see if tempSpeed has a value.  IF it does (>0), set the speed using the 'find closest match' as a duty cycle
-  if (tempSpeed > 0) {
-    DEBUG_PRINTF("Speed: %d", tempSpeed);
-    DEBUG_PRINTLN("");
-
-    dutyCycle = findClosestMatch(tempSpeed);  // find the closest final duty based on the incoming duty (use motor perfomance)
-
-    motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);  // set the duty of the motor from the calculations
-    delay(sweepSpeed * 10);                              // just used to stop bombarbing the loop so quickly, just slow things down a bit...
-  } else {
-    // tempSpeed == 0, therefore run through every single duty with a long delay to give you time to go between IDE & cluster and write down...
+  if (tempSpeed == 0) {
     for (uint16_t i = 15; i < 385; i++) {  // run through all available speeds and drive the motor
       DEBUG_PRINTF("Duty: %d", i);
       DEBUG_PRINTLN("");
@@ -57,17 +46,6 @@ void testSpeed() {
       motorPWM->setPWM_manual(pinMotorOutput, i);  // set the duty of the motor from the calculations
       delay(sweepSpeed * 300);
     }
-  }
-
-  vehicleRPM += 500;
-  vehicleSpeed += 10;
-
-  if (vehicleRPM > RPMLimit) {
-    vehicleRPM = 1000;
-    frequencyRPM = 1;
-  }
-  if (vehicleSpeed > maxSpeed) {
-    vehicleSpeed = 10;
   }
 }
 
@@ -77,7 +55,7 @@ void needleSweep() {
     DEBUG_PRINTF("Speed: %d", i);
     DEBUG_PRINTLN("");
 
-    dutyCycle = findClosestMatch(i);
+    dutyCycle = findClosestMatch(i * stepSpeed);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
     setFrequencyRPM(i * stepRPM);
     delay(sweepSpeed);
@@ -91,7 +69,7 @@ void needleSweep() {
     DEBUG_PRINTF("Speed: %d", i);
     DEBUG_PRINTLN("");
 
-    dutyCycle = findClosestMatch(i);
+    dutyCycle = findClosestMatch(i * stepSpeed);
     motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
     setFrequencyRPM(i * stepRPM);
     delay(sweepSpeed);

@@ -3,11 +3,12 @@ SpeedPulser Pro - Forbes Automotive '25
 
 A blend of the SpeedPulser and Can2Cluster.  Offering speed and RPM output to MK1 & MK2 Golf clusters.  Supports CAN (for RPM/Speed) and GPS (for speed).
 Can capture hall sensor input for traditional speed input.  Can broadcast speed via. CAN or GPS if req.
+Note that RPM output is high voltage and MAY cause interference between hall sensors.  Care should be taken to route the cables AWAY from each other.
 */
 
 #include "speedPulserPro_defs.h"
 
-// for motor
+// for motor PWM
 ESP32_FAST_PWM* motorPWM;                              // for PWM control.  ESP Boards need to be V2.0.17 - the latest version has known issues with LEDPWM(!)
 RunningMedian samples = RunningMedian(averageFilter);  // for calculating median samples - there can be 'hickups' in the incoming signal, this helps remove them(!)
 
@@ -21,19 +22,19 @@ ESP32_CAN<RX_SIZE_256, TX_SIZE_16> chassisCAN;
 SoftwareSerial ss(pinRX_GPS, pinTX_GPS);
 TinyGPSPlus gps;
 
-TickTwo tickEEP(writeEEP, eepRefresh);
-TickTwo tickWiFi(disconnectWifi, wifiDisable);  // timer for disconnecting wifi after 30s if no connections - saves power
-Preferences pref;
+TickTwo tickEEP(writeEEP, eepRefresh);          // refresh EEP
+TickTwo tickWiFi(disconnectWifi, wifiDisable);  // timer for disconnecting wifi after (wifiDisable) if no connections - saves power
+Preferences pref;                               // to record previously saved settings
 
-extern OneButton btnConfig(pinCal, false);
+extern OneButton btnConfig(pinCal, false);  // input for calibration button - currently unused
 
 hw_timer_t* timer0 = NULL;
 bool rpmTrigger = true;
-long frequencyRPM = 20;  // 20 to 20000
+long frequencyRPM = 20;  // 0 to 20000
 
 void IRAM_ATTR onTimer0() {
-  rpmTrigger = !rpmTrigger;
-  digitalWrite(pinCoil, rpmTrigger);
+  rpmTrigger = !rpmTrigger;           // flip/flop RPM trigger - will create a 50% duty at X freq.
+  digitalWrite(pinCoil, rpmTrigger);  // drive coil transistor
 }
 
 // interrupt routine for the incoming pulse
@@ -58,7 +59,7 @@ void incomingMotorSpeed() {                                       // Interrupt 0
   previousMicros = presentMicros;
 }
 
-void incomingCal() {
+void incomingCal() {  // ignored
   if (testSpeedo == 0 || testSpeedo == 1) {
     testSpeedo = 2;
   }
@@ -94,36 +95,31 @@ void setup() {
   basicInit();   // init PWM, Serial, Pin IO etc.  Kept in '_io.ino' for cleanliness due to the number of Serial outputs
   setupTimer();  // setup the timers (with a base frequency)
 
+  if (hasNeedleSweep) {
+    needleSweep();  // enable needle sweep (in _io.ino).  Get this done immediately after setup so there isn't a visible 'lag'
+  }
+
   tickEEP.start();   // begin ticker for the EEPROM
   tickWiFi.start();  // begin ticker for the WiFi (to turn off after 60s)
 
   motorPWM->setPWM(pinMotorOutput, pwmFrequency, dutyCycle);  // set motor to off in first instance (100% duty)
 
-  if (hasNeedleSweep) {
-    needleSweep();  // enable needle sweep (in _io.ino)
-  }
-
-  connectWifi();         // enable / start WiFi
-  WiFi.setSleep(false);  //For the ESP32: turn off sleeping to increase UI responsivness (at the cost of power use)
-  setupUI();             // setup wifi user interface
+  connectWifi();                       // enable / start WiFi
+  WiFi.setSleep(false);                // for the ESP32: turn off sleeping to increase UI responsivness (at the cost of power use)
+  setupUI();                           // setup wifi user interface
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);  // set a lower power mode (some C3 aerials aren't great and leaving it high causes failures)
 }
 
 void loop() {
-  // check to see if in 'test mode' (testSpeedo = 1)
-  btnConfig.tick();
+  btnConfig.tick();   // refresh the button ticker
   tickEEP.update();   // refresh the EEP ticker
   tickWiFi.update();  // refresh the WiFi ticker
 
-  updateLabels();
+  parseGPS();  // check for GPS updates - not an issue if not connected
 
-  if (testSpeedo == 1) {
-    DEBUG_PRINTLN("Test Speedo = 1");
-    motorPWM->setPWM_manual(pinMotorOutput, 385);
-  }
-
-  if (tempNeedleSweep) {
+  if (tempNeedleSweep) {  // only here if tested in WiFi
     needleSweep();
-    tempNeedleSweep = false;
+    tempNeedleSweep = false;  // reset the flag
   }
 
   if (ledCounter > averageFilter) {
@@ -132,66 +128,29 @@ void loop() {
     ledCounter = 0;                           // reset the counter
   }
 
-  if (millis() - lastPulse > durationReset) {
-    motorPWM->setPWM_manual(pinMotorOutput, 0);
-    dutyCycle = 0;
-    dutyCycleIncoming = 0;
-  }
+  if (!testSpeedo) {
+    if ((millis() - lastPulse) > durationReset) {  // it's been a while since the last hall input, so update to say 0 speed and reset vars
+      ESPUI.updateLabel(label_speedHall, "Hall Speed: 0");
+      dutyCycle = 0;
+      dutyCycleIncoming = 0;
+      vehicleSpeedHall = 0;
+    }
 
-  if (testSpeedo == 0 || vehicleSpeed > 0) {
-    if ((dutyCycle != dutyCycleIncoming)) {  // only update PWM IF speed has changed (can cause flicker otherwise)
-      switch (incomingType) {
-        case 0:  // can input
-          DEBUG_PRINTF("     SpeedIncomingCAN: %d", vehicleSpeed);
-          if (speedOffsetPositive) {
-            dutyCycle = vehicleSpeed + speedOffset;
-            dutyCycle = findClosestMatch(dutyCycle);
-            motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-          } else {
-            if (dutyCycle - speedOffset > 0) {
-              dutyCycle = vehicleSpeed - speedOffset;
-              dutyCycle = findClosestMatch(dutyCycle);
-              motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-            } else {
-              motorPWM->setPWM_manual(pinMotorOutput, 0);
-            }
-          }
-          DEBUG_PRINTF("     FindClosetMatchC2C: %d", dutyCycle);
-          break;
+    if ((dutyCycle != dutyCycleIncoming)) {                                                      // only update PWM IF speed has changed (can cause flicker otherwise)
+      DEBUG_PRINTF("     DutyIncomingHall: %d", dutyCycleIncoming);                              // what is the incoming pulse count?
+      dutyCycleIncoming = map(dutyCycleIncoming, minFreqHall, maxFreqHall, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
+      DEBUG_PRINTF("     DutyPostProc1Hall: %d", dutyCycle);                                     // what is the new 'pulse count' - mapped to min/max hall and min/max speed
 
-        case 1:  // hall sensor input
-          DEBUG_PRINTF("     DutyIncomingHall: %d", dutyCycleIncoming);
-          dutyCycleIncoming = map(dutyCycleIncoming, minFreqHall, maxFreqHall, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
-          DEBUG_PRINTF("     DutyPostProc1Hall: %d", dutyCycle);
+      if (rawCount < averageFilter) {
+        samples.add(dutyCycleIncoming);  // add to a list to create an average
+        rawCount++;
+      }
 
-          if (rawCount < averageFilter) {
-            samples.add(dutyCycleIncoming);
-            rawCount++;
-          }
-
-          if (rawCount >= averageFilter) {
-            dutyCycle = samples.getAverage(averageFilter / 2);
-            DEBUG_PRINTF("     getAverageHall: %d", dutyCycle);
-
-            if (speedOffsetPositive) {
-              dutyCycle = dutyCycle + speedOffset;
-              dutyCycle = findClosestMatch(dutyCycle);
-              motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-            } else {
-              if (dutyCycle - speedOffset > 0) {
-                dutyCycle = dutyCycle - speedOffset;
-                dutyCycle = findClosestMatch(dutyCycle);
-                motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
-              } else {
-                motorPWM->setPWM_manual(pinMotorOutput, 0);
-              }
-            }
-
-            DEBUG_PRINTF("     FindClosetMatchHall: %d", dutyCycle);
-            rawCount = 0;
-            samples.clear();
-          }
-          break;
+      if (rawCount >= averageFilter) {
+        vehicleSpeedHall = samples.getAverage(averageFilter / 2);  // get the average
+        DEBUG_PRINTF("     getAverageHall: %d", dutyCycle);
+        rawCount = 0;
+        samples.clear();  // clear the list
       }
 
       dutyCycle = dutyCycleIncoming;  // re-introduce?  Could do some filter on big changes?  May skip over genuine changes though?
@@ -199,12 +158,84 @@ void loop() {
     }
   }
 
-  frequencyRPM = map(vehicleRPM, 0, RPMLimit, 0, maxRPM);
-  // change the frequency of both RPM & Speed as per CAN information
-  if ((millis() - lastMillis2) > rpmPause) {  // check to see if x ms (linPause) has elapsed - slow down the frames!
+  // if testSpeedo, apply offests to to confirm working
+  if (testSpeedo) {
+    if (speedOffsetPositive) {
+      dutyCycle = tempSpeed + speedOffset;
+      DEBUG_PRINTLN("+");
+      DEBUG_PRINTLN(dutyCycle);
+    } else {
+      if (tempSpeed - speedOffset > 0) {
+        dutyCycle = tempSpeed - speedOffset;
+        DEBUG_PRINTLN("-");
+        DEBUG_PRINTLN(dutyCycle);
+      } else {
+        dutyCycle = 0;
+      }
+    }
+  }
+
+  //if NOT testSpeedo, apply the caught variables (Hall, GPS or CAN) and transfer across, applying any maps beforehand
+  if (!testSpeedo) {
+    vehicleSpeed = 0;
+    if (vehicleSpeedHall > 0) {
+      vehicleSpeed = vehicleSpeedHall;
+    }
+    if (vehicleSpeedCAN > 0) {
+      vehicleSpeedCAN = map(vehicleSpeedCAN, minFreqCAN, maxFreqCAN, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
+      vehicleSpeed = vehicleSpeedCAN;
+    }
+    if (vehicleSpeedGPS > 0) {
+      vehicleSpeed = vehicleSpeedGPS;
+    }
+
+    // we now have a final speed - so apply any offsets
+    if (speedOffsetPositive) {
+      dutyCycle = vehicleSpeed + speedOffset;
+      DEBUG_PRINTLN("+");
+      DEBUG_PRINTLN(dutyCycle);
+    } else {
+      if (vehicleSpeed - speedOffset > 0) {
+        dutyCycle = vehicleSpeed - speedOffset;
+        DEBUG_PRINTLN("-");
+        DEBUG_PRINTLN(dutyCycle);
+      } else {
+        dutyCycle = 0;
+      }
+    }
+  }
+
+  if (testRPM) {  // set vehicleRPM is testing or not
+    vehicleRPM = tempRPM;
+  } else {
+    vehicleRPM = vehicleRPMCAN;
+  }
+
+  // change the frequency of both RPM & Speed as per receieved information
+  if ((millis() - lastMillis2) > rpmPause) {  // check to see if x ms (rpmPause) has elapsed - slow down the frames!
     lastMillis2 = millis();
-    DEBUG_PRINTLN(frequencyRPM);
+
+    updateLabels();  // update WiFi labels
+
+    // set RPM frequency
+    frequencyRPM = map(vehicleRPM, 0, clusterRPMLimit, 0, maxRPM);
     setFrequencyRPM(frequencyRPM);  // minimum speed may command 0 and setFreq. will cause crash, so +1 to error 'catch'
+
+    // set motor duty cycle
+    dutyCycle = findClosestMatch(dutyCycle);
+    motorPWM->setPWM_manual(pinMotorOutput, dutyCycle);
+
+    DEBUG_PRINTLN("vehicleSpeedHall: ");
+    DEBUG_PRINTLN(vehicleSpeedHall);
+    DEBUG_PRINTLN("vehicleSpeedCAN: ");
+    DEBUG_PRINTLN(vehicleSpeedCAN);
+    DEBUG_PRINTLN("vehicleSpeedGPS: ");
+    DEBUG_PRINTLN(vehicleSpeedGPS);
+
+    DEBUG_PRINTLN("vehicleSpeed: ");
+    DEBUG_PRINTLN(vehicleSpeed);
+    DEBUG_PRINTLN("vehicleRPM: ");
+    DEBUG_PRINTLN(vehicleRPM);
   }
 }
 
@@ -226,15 +257,19 @@ uint16_t findClosestMatch(uint16_t val) {
 }
 
 void updateLabels() {
-  char bufRPM[32];
-  sprintf(bufRPM, "CAN RPM: %d", vehicleRPM);
-  ESPUI.updateLabel(label_RPMCAN, String(bufRPM));
+  char bufSpeedHall[32];
+  sprintf(bufSpeedHall, "Hall Speed: %d", vehicleSpeedHall);
+  ESPUI.updateLabel(label_speedHall, String(bufSpeedHall));
 
   char bufSpeedGPS[32];
   sprintf(bufSpeedGPS, "GPS Speed: %d", vehicleSpeedGPS);
   ESPUI.updateLabel(label_speedGPS, String(bufSpeedGPS));
 
   char bufSpeedCAN[32];
-  sprintf(bufSpeedCAN, "GPS Speed: %d", vehicleSpeedCAN);
+  sprintf(bufSpeedCAN, "CAN Speed: %d", vehicleSpeedCAN);
   ESPUI.updateLabel(label_speedCAN, String(bufSpeedCAN));
+
+  char bufRPM[32];
+  sprintf(bufRPM, "CAN RPM: %d", vehicleRPMCAN);
+  ESPUI.updateLabel(label_RPMCAN, String(bufRPM));
 }

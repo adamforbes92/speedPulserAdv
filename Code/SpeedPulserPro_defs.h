@@ -12,12 +12,15 @@
 #define baudSerial 115200              // baud rate for serial feedback
 #define serialDebug 1                  // for Serial feedback - disable on release(!) ** CAN CHANGE THIS **
 #define serialDebugWifi 1              // for wifi feedback
-#define ChassisCANDebug 1              // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
-#define eepRefresh 2000                // EEPROM Refresh in ms
-#define wifiDisable 30000              // turn off WiFi in ms
+#define serialDebugEEP 0
+#define serialDebugGPS 0
+#define ChassisCANDebug 0              // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
+#define eepRefresh 5000                // EEPROM Refresh in ms
+#define wifiDisable 60000              // turn off WiFi in ms
 #define wifiHostName "SpeedPulserPro"  // the WiFi name
 
-extern uint8_t testSpeedo = 2;  // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
+extern bool testSpeedo = false;  // for testing only, vary final pwmFrequency for speed - disable on release(!) ** CAN CHANGE THIS **
+extern bool testRPM = false;
 
 extern bool hasNeedleSweep = false;  // for needle sweep ** CAN CHANGE THIS **
 extern uint8_t sweepSpeed = 18;      // for needle sweep rate of change (in ms) ** CAN CHANGE THIS **
@@ -37,13 +40,13 @@ extern uint16_t maxSpeed = 200;  // minimum cluster speed in kmh on the cluster 
 extern uint16_t minRPM = 0;      // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
 extern uint16_t maxRPM = 230;    // minimum cluster speed in kmh on the cluster ** CAN CHANGE THIS **
 
-extern uint16_t RPMLimit = 7000;  // rpm ** CAN CHANGE THIS **
+extern uint16_t clusterRPMLimit = 7000;  // rpm ** CAN CHANGE THIS **
 
 // setup - step changes (for needle sweep)
 extern float stepRPM = 1.2;
 extern float stepSpeed = 1;
 extern uint8_t speedOffset = 0;          // for adjusting a GLOBAL FIXED speed offset - so the entire range is offset by X value.  Might be easier to use this than the input max freq.
-extern bool speedOffsetPositive = true;  // set to 1 for the above value to be ADDED, set to zero for the above value to be SUBTRACTED
+extern bool speedOffsetPositive = false;  // set to 1 for the above value to be ADDED, set to zero for the above value to be SUBTRACTED
 
 #define pinMotorOutput 21  // pin for motor PWM output - needs stepped up to 5v for the motor (NPN transistor on the board).  Needs to support LED PWM(!)
 #define pinMotorInput 18   // pin for motor speed input.  Assumed 5v, might be bad, should have checked(!)...
@@ -71,9 +74,12 @@ extern bool speedOffsetPositive = true;  // set to 1 for the above value to be A
 // Baud Rates
 #define baudSerial 9600            // baud rate for debug
 #define baudGPS 9600               // baud rate for the GPS device
+extern uint16_t vehicleRPMCAN = 0;
 extern uint16_t vehicleRPM = 0;    // current RPM.  If no CAN, this will catch dividing by zero by the map function
+
 extern uint16_t calcSpeed = 0;     // temp var for calculating speed
 extern uint16_t vehicleSpeed = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
+extern uint16_t vehicleSpeedHall = 0;
 extern uint16_t vehicleSpeedCAN = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
 extern uint16_t vehicleSpeedGPS = 0;  // current Speed.  If no CAN, this will catch dividing by zero by the map function
 extern bool tempNeedleSweep = false;
@@ -201,9 +207,9 @@ uint16_t bool_testSpeedo, int16_tempSpeed, bool_testRPM;
 
 uint16_t bool_positiveOffset, int16_speedOffset;
 uint16_t int16_minSpeed, int16_maxSpeed, int16_minHall, int16_maxHall, int16_minCAN, int16_maxCAN;
-uint16_t int16_minRPM, int16_maxRPM, int16_tempRPM;
+uint16_t int16_minRPM, int16_maxRPM, int16_tempRPM, int16_clusterRPM, int16_RPMScaling;
 
-int label_speed, label_speedGPS, label_speedCAN, label_RPMCAN;
+int label_speedHall, label_speedGPS, label_speedCAN, label_RPMCAN;
 
 uint16_t graph;
 uint16_t mainTime;

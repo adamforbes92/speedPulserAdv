@@ -20,5 +20,5 @@ To calibrate or adapt to other models:
 All main adjustable variables are in '_defs.h'.
 
 V1.01 - initial release - using SpeedPulser & C2C as a base
-V1.08 - pre-release, added WiFi
+V1.02 - full release - confirmed WiFi and RPM working.  To test CAN
 */
