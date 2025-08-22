@@ -128,6 +128,8 @@ void loop() {
     ledCounter = 0;                           // reset the counter
   }
 
+  updateLabels();
+
   if (!testSpeedo) {
     if ((millis() - lastPulse) > durationReset) {  // it's been a while since the last hall input, so update to say 0 speed and reset vars
       ESPUI.updateLabel(label_speedHall, "Hall Speed: 0");
@@ -182,7 +184,7 @@ void loop() {
       vehicleSpeed = vehicleSpeedHall;
     }
     if (vehicleSpeedCAN > 0) {
-      vehicleSpeedCAN = map(vehicleSpeedCAN, minFreqCAN, maxFreqCAN, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
+      //vehicleSpeedCAN = map(vehicleSpeedCAN, minFreqCAN, maxFreqCAN, minSpeed, maxSpeed);  // map incoming range to this codes range.  Max Hz should match Max Speed - i.e., 200Hz = 200kmh, or 500Hz = 200kmh...
       vehicleSpeed = vehicleSpeedCAN;
     }
     if (vehicleSpeedGPS > 0) {
@@ -264,6 +266,20 @@ void updateLabels() {
   char bufSpeedGPS[32];
   sprintf(bufSpeedGPS, "GPS Speed: %d", vehicleSpeedGPS);
   ESPUI.updateLabel(label_speedGPS, String(bufSpeedGPS));
+
+  if (hasGPS) {
+    char bufhasGPS[50];
+    sprintf(bufhasGPS, "Has GPS: Yes (with: %d satellites)", gps.satellites.value());
+    ESPUI.updateLabel(label_hasGPS, String(bufhasGPS));
+  } else {
+    ESPUI.updateLabel(label_hasGPS, "Has GPS: No");
+  }
+
+  if (hasCAN) {
+    ESPUI.updateLabel(label_hasCAN, "Has CAN: Yes");
+  } else {
+    ESPUI.updateLabel(label_hasCAN, "Has CAN: No");
+  }
 
   char bufSpeedCAN[32];
   sprintf(bufSpeedCAN, "CAN Speed: %d", vehicleSpeedCAN);

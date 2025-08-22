@@ -21,6 +21,8 @@ void onBodyRX(const CAN_message_t& frame) {
   Serial.println();
 #endif
 
+  lastCAN = millis();
+
   switch (frame.id) {
     case MOTOR1_ID:
       // frame[2] (byte 3) > motor speed low byte
@@ -30,7 +32,7 @@ void onBodyRX(const CAN_message_t& frame) {
       break;
 
     case MOTOR2_ID:
-      calcSpeed = (frame.buf[3] * 100 * 128) / 10000;
+      vehicleSpeedCAN = (frame.buf[3] * 100 * 128) / 10000;
       break;
 
     case MOTOR5_ID:

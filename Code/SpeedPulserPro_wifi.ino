@@ -74,13 +74,17 @@ void setupUI() {
   ESPUI.addControl(Button, "Reset", "Reset", Dark, tabAdvancedRPM, extendedCallback, (void *)16);
 
   // create advanced speed tab
-  auto tabAdvancedCAN = ESPUI.addControl(Tab, "", "CAN & GPS");
-  ESPUI.addControl(Separator, "Testing", "", Dark, tabAdvancedCAN);
+  auto tabAdvancedCAN = ESPUI.addControl(Tab, "", "IO");
+  ESPUI.addControl(Separator, "Incoming Data", "", Dark, tabAdvancedCAN);
   ESPUI.addControl(Separator, "Incoming Speed (Hall):", "", Dark, tabAdvancedCAN);
   label_speedHall = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
 
   ESPUI.addControl(Separator, "Incoming Speed (GPS):", "", Dark, tabAdvancedCAN);
   label_speedGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  label_hasGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+
+  ESPUI.addControl(Separator, "CAN Available:", "", Dark, tabAdvancedCAN);
+  label_hasCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
 
   ESPUI.addControl(Separator, "Incoming Speed (CAN):", "", Dark, tabAdvancedCAN);
   label_speedCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
@@ -254,20 +258,12 @@ void connectWifi() {
   int connect_timeout;
 
   WiFi.setHostname(wifiHostName);
-  Serial.println("Begin wifi...");
-
-  Serial.println("\nCreating access point...");
+  DEBUG_PRINTLN("Beginning WiFi...");
+  DEBUG_PRINTLN("Creating Access Point...");
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(wifiHostName);
-
-  connect_timeout = 20;
-  do {
-    delay(250);
-    Serial.print(",");
-    connect_timeout--;
-  } while (connect_timeout);
 }
 
 void textCallback(Control *sender, int type) {

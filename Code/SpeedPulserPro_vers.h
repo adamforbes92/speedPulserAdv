@@ -21,4 +21,8 @@ All main adjustable variables are in '_defs.h'.
 
 V1.01 - initial release - using SpeedPulser & C2C as a base
 V1.02 - full release - confirmed WiFi and RPM working.  To test CAN
+V1.03 - board revision, moved to EasyEDA and added ground planes. Signal more stable.  Changed motor feedback (which isn't being used) to ECU RPM
+  > inputs are CAN or Speed & RPM (individual pull-to-ground)
+  > outputs are RPM & Speed (via. motor)
+  > added WiFi info - has GPS & has CAN confirmation
 */

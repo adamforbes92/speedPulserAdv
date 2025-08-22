@@ -5,8 +5,10 @@ void parseGPS() {
 
   if (gps.satellites.value() == 0) {
     hasError = true;
+    hasGPS = false;
   } else {
     hasError = false;
+    hasGPS = true;
   }
 
   if (gps.speed.isUpdated()) {
