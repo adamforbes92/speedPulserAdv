@@ -259,6 +259,12 @@ uint16_t findClosestMatch(uint16_t val) {
 }
 
 void updateLabels() {
+  if ((millis() + 10 - lastCAN) > 500) {
+    hasCAN = true;
+  } else {
+    hasCAN = false;
+  }
+
   char bufSpeedHall[32];
   sprintf(bufSpeedHall, "Hall Speed: %d", vehicleSpeedHall);
   ESPUI.updateLabel(label_speedHall, String(bufSpeedHall));
@@ -269,7 +275,7 @@ void updateLabels() {
 
   if (hasGPS) {
     char bufhasGPS[50];
-    sprintf(bufhasGPS, "Has GPS: Yes (with: %d satellites)", gps.satellites.value());
+    sprintf(bufhasGPS, "Has GPS: Yes (%d satellites)", gps.satellites.value());
     ESPUI.updateLabel(label_hasGPS, String(bufhasGPS));
   } else {
     ESPUI.updateLabel(label_hasGPS, "Has GPS: No");

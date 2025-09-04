@@ -64,6 +64,16 @@ void onBodyRX(const CAN_message_t& frame) {
 
       if (lever_raw) {
         gear = gear_raw;
+
+        switch (gear) {
+          case 3:  // reverse
+            vehicleReverse = true;
+            break;
+          default:
+            vehicleReverse = false;
+            break;
+        }
+
         if (gear == 0xFF) {
           gear = 1;
         }
