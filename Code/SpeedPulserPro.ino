@@ -107,7 +107,6 @@ void loop() {
   tickEEP.update();   // refresh the EEP ticker
   tickWiFi.update();  // refresh the WiFi ticker
   tickWiFiLabels.update();
-  //updateLabels();
 
   parseGPS();  // check for GPS updates - not an issue if not connected
 
@@ -217,7 +216,9 @@ void loop() {
   if (testRPM) {  // set vehicleRPM is testing or not
     vehicleRPM = tempRPM;
   } else {
-    if (dutyCycleMotor > 0) {
+    if ((millis() + 10 - lastPulseRPM) > durationReset) {  // it's been a while since the last hall input, so update to say 0 speed and reset vars
+      vehicleRPMHall = 0;
+    } else {
       vehicleRPMHall = map(dutyCycleMotor, 0, maxRPM, 0, clusterRPMLimit);
       vehicleRPM = vehicleRPMHall;
     }
@@ -293,10 +294,6 @@ void updateLabels() {
     updateMotorArray();
   }
 
-  char bufSpeedGPS[32];
-  sprintf(bufSpeedGPS, "GPS Speed: %d", vehicleSpeedGPS);
-  ESPUI.updateLabel(label_speedGPS, String(bufSpeedGPS));
-
   if (hasGPS) {
     char bufhasGPS[50];
     sprintf(bufhasGPS, "Has GPS: Yes (%d satellites)", gps.satellites.value());
@@ -311,26 +308,12 @@ void updateLabels() {
     ESPUI.updateLabel(label_hasCAN, "Has CAN: No");
   }
 
-  char bufSpeedCAN[32];
-  sprintf(bufSpeedCAN, "CAN Speed: %d", vehicleSpeedCAN);
-  ESPUI.updateLabel(label_speedCAN, String(bufSpeedCAN));
+  ESPUI.updateLabel(label_speedHall, String(vehicleSpeedHall)); // should be hall
+  ESPUI.updateLabel(label_speedGPS, String(vehicleSpeedGPS));
+  ESPUI.updateLabel(label_speedCAN, String(vehicleSpeedCAN));
 
-  char bufRPM[32];
-  sprintf(bufRPM, "CAN RPM: %d", vehicleRPMCAN);
-  ESPUI.updateLabel(label_RPMCAN, String(bufRPM));
-
-  char bufSpeedHall[32];
-  sprintf(bufSpeedHall, "Hall Speed: %d", vehicleSpeedHall);
-  ESPUI.updateLabel(label_speedHall, String(bufSpeedHall));
-
-  if ((millis() + 10  - lastPulseRPM) > durationReset) {  // it's been a while since the last hall input, so update to say 0 speed and reset vars
-    ESPUI.updateLabel(label_RPMHall, "Hall RPM: 0");
-    vehicleRPMHall = 0;
-  } else {
-    char bufRPMHall[32];
-    sprintf(bufRPMHall, "Hall RPM: %d", vehicleRPMHall);
-    ESPUI.updateLabel(label_RPMHall, String(bufRPMHall));
-  }
+  ESPUI.updateLabel(label_RPMHall, String(vehicleRPMHall));
+  ESPUI.updateLabel(label_RPMCAN, String(vehicleRPMCAN));
 
   switch (motorPerformanceVal) {
     case 1:

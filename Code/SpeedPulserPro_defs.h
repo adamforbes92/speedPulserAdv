@@ -16,7 +16,7 @@
 #define serialDebugGPS 0               //
 #define ChassisCANDebug 0              // if 1, will print CAN 2 (Chassis) messages ** CAN CHANGE THIS **
 #define eepRefresh 5000                // EEPROM Refresh in ms
-#define labelRefresh 10                // EEPROM Refresh in ms
+#define labelRefresh 200                // EEPROM Refresh in ms
 #define wifiDisable 60000              // turn off WiFi in ms
 #define wifiHostName "SpeedPulserPro"  // the WiFi name
 

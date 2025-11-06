@@ -86,26 +86,26 @@ void setupUI() {
   ESPUI.addControl(Button, "Reset", "Reset", Dark, tabAdvancedRPM, extendedCallback, (void *)16);
 
   // create advanced speed tab
-  auto tabAdvancedCAN = ESPUI.addControl(Tab, "", "IO");
-  ESPUI.addControl(Separator, "Incoming Data", "", Dark, tabAdvancedCAN);
-  ESPUI.addControl(Separator, "Incoming Speed (Hall):", "", Dark, tabAdvancedCAN);
-  label_speedHall = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  auto tabIO = ESPUI.addControl(Tab, "", "IO");
+  ESPUI.addControl(Separator, "Incoming Data", "", Dark, tabIO);
+  ESPUI.addControl(Separator, "Incoming Speed (Hall):", "", Dark, tabIO);
+  label_speedHall = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
-  ESPUI.addControl(Separator, "Incoming Speed (GPS):", "", Dark, tabAdvancedCAN);
-  label_speedGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
-  label_hasGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  ESPUI.addControl(Separator, "Incoming Speed (GPS):", "", Dark, tabIO);
+  label_speedGPS = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
+  label_hasGPS = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
-  ESPUI.addControl(Separator, "Incoming RPM (Hall Type):", "", Dark, tabAdvancedCAN);
-  label_RPMHall = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  ESPUI.addControl(Separator, "Incoming RPM (Hall Type):", "", Dark, tabIO);
+  label_RPMHall = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
-  ESPUI.addControl(Separator, "CAN Available:", "", Dark, tabAdvancedCAN);
-  label_hasCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  ESPUI.addControl(Separator, "CAN Available:", "", Dark, tabIO);
+  label_hasCAN = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
-  ESPUI.addControl(Separator, "Incoming Speed (CAN):", "", Dark, tabAdvancedCAN);
-  label_speedCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  ESPUI.addControl(Separator, "Incoming Speed (CAN):", "", Dark, tabIO);
+  label_speedCAN = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
-  ESPUI.addControl(Separator, "Incoming RPM (CAN):", "", Dark, tabAdvancedCAN);
-  label_RPMCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+  ESPUI.addControl(Separator, "Incoming RPM (CAN):", "", Dark, tabIO);
+  label_RPMCAN = ESPUI.addControl(Label, "", "0", Dark, tabIO, generalCallback);
 
   //Finally, start up the UI.
   //This should only be called once we are connected to WiFi.
