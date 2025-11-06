@@ -1,6 +1,14 @@
 void basicInit() {
   DEBUG_PRINTLN("Initialising SpeedPulser...");
 
+#if serialDebug
+  DEBUG_PRINTLN("Reading EEPROM...");
+#endif
+  readEEP();  // read EEPROM
+#if serialDebug
+  DEBUG_PRINTLN("Read EEPROM!");
+#endif
+
   DEBUG_PRINTLN("Setting up LED Output...");
   pinMode(pinOnboardLED, OUTPUT);
   digitalWrite(pinOnboardLED, ledOnboard);
@@ -8,7 +16,6 @@ void basicInit() {
 
   DEBUG_PRINTLN("Setting up Coil Output...");
   pinMode(pinCoil, OUTPUT);
-  pinMode(pinCal, INPUT);
   DEBUG_PRINTLN("Set up Coil Output!");
 
   DEBUG_PRINTLN("Setting up PWM...");

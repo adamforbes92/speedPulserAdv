@@ -20,6 +20,18 @@ void setupUI() {
 
   // create advanced speed tab
   auto tabAdvancedSpeed = ESPUI.addControl(Tab, "", "Speed");
+  ESPUI.addControl(Separator, "Calibration:", "", Dark, tabAdvancedSpeed);
+  int16_calNumber = ESPUI.addControl(Select, "Calibration", "", Dark, tabAdvancedSpeed, generalCallback);
+  ESPUI.addControl(Option, "VW - 120mph; Martin Springell", "VW120Martin", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "VW - 120mph; Forbes-Automotive", "VW120Forbes", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "VW - 140mph; Forbes-Automotive", "VW140Forbes", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "VW - 160mph; Forbes-Automotive", "VW160Forbes", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "Ford - 120mph_1; Forbes-Automotive", "Ford120Forbes1", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "Ford - 120mph_2; Forbes-Automotive", "Ford120Forbes2", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "FIAT - 40-160mph; Forbes-Automotive", "FIAT160Forbes1", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "FIAT - 20-110mph; Forbes-Automotive", "FIAT160Forbes2", Dark, int16_calNumber);
+  ESPUI.addControl(Option, "Merc - 120mph; Forbes-Automotive", "Merc120Forbes", Dark, int16_calNumber);
+
   ESPUI.addControl(Separator, "Testing", "", Dark, tabAdvancedSpeed);
   bool_testSpeedo = ESPUI.addControl(Switcher, "Test Speedo", "", Dark, tabAdvancedSpeed, generalCallback);
   int16_tempSpeed = ESPUI.addControl(Slider, "Go to Speed", String(tempSpeed), Dark, tabAdvancedSpeed, generalCallback);
@@ -82,6 +94,9 @@ void setupUI() {
   ESPUI.addControl(Separator, "Incoming Speed (GPS):", "", Dark, tabAdvancedCAN);
   label_speedGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
   label_hasGPS = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
+
+  ESPUI.addControl(Separator, "Incoming RPM (Hall Type):", "", Dark, tabAdvancedCAN);
+  label_RPMHall = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
 
   ESPUI.addControl(Separator, "CAN Available:", "", Dark, tabAdvancedCAN);
   label_hasCAN = ESPUI.addControl(Label, "", "0", Dark, tabAdvancedCAN, generalCallback);
@@ -146,49 +161,60 @@ void generalCallback(Control *sender, int type) {
       stepSpeed = sender->value.toInt();
       break;
 
-
     case 16:
+      if (sender->value == "VW120Martin") motorPerformanceVal = 1;
+      if (sender->value == "VW120Forbes") motorPerformanceVal = 2;
+      if (sender->value == "VW140Forbes") motorPerformanceVal = 3;
+      if (sender->value == "VW160Forbes") motorPerformanceVal = 4;
+      if (sender->value == "Ford120Forbes1") motorPerformanceVal = 5;
+      if (sender->value == "Ford120Forbes2") motorPerformanceVal = 6;
+      if (sender->value == "FIAT160Forbes1") motorPerformanceVal = 7;
+      if (sender->value == "FIAT160Forbes2") motorPerformanceVal = 8;
+      if (sender->value == "Merc120Forbes") motorPerformanceVal = 9;
+      updateMotorPerformance = true;
+      break;
+
+    case 27:
       testSpeedo = sender->value.toInt();
       break;
-    case 17:
+    case 28:
       tempSpeed = sender->value.toInt();
       break;
-    case 21:
+    case 32:
       speedOffsetPositive = sender->value.toInt();
       break;
-    case 22:
+    case 33:
       speedOffset = sender->value.toInt();
       break;
-    case 26:
+    case 37:
       minSpeed = sender->value.toInt();
       break;
-    case 27:
+    case 38:
       maxSpeed = sender->value.toInt();
       break;
-    case 32:
+    case 43:
       minFreqHall = sender->value.toInt();
       break;
-    case 33:
+    case 44:
       maxFreqHall = sender->value.toInt();
       break;
 
-
-    case 38:
+    case 49:
       minFreqCAN = sender->value.toInt();
       break;
-    case 39:
+    case 50:
       maxFreqCAN = sender->value.toInt();
       break;
-    case 45:
+    case 56:
       testRPM = sender->value.toInt();
       break;
-    case 46:
+    case 57:
       tempRPM = sender->value.toInt();
       break;
-    case 50:
+    case 61:
       clusterRPMLimit = sender->value.toInt();
       break;
-    case 55:
+    case 66:
       maxRPM = sender->value.toInt();
       break;
   }
@@ -215,7 +241,7 @@ void extendedCallback(Control *sender, int type, void *param) {
         tempNeedleSweep = true;
       }
       break;
-    case 30:
+    case 41:
       if (type == B_UP) {
         minSpeed = 0;
         maxSpeed = 200;
@@ -223,7 +249,7 @@ void extendedCallback(Control *sender, int type, void *param) {
         ESPUI.updateSlider(int16_maxSpeed, maxSpeed);
       }
       break;
-    case 36:
+    case 47:
       if (type == B_UP) {
         minFreqHall = 0;
         maxFreqHall = 200;
@@ -231,7 +257,7 @@ void extendedCallback(Control *sender, int type, void *param) {
         ESPUI.updateSlider(int16_maxHall, maxFreqHall);
       }
       break;
-    case 42:
+    case 53:
       if (type == B_UP) {
         minFreqCAN = 0;
         maxFreqCAN = 200;
@@ -239,13 +265,13 @@ void extendedCallback(Control *sender, int type, void *param) {
         ESPUI.updateSlider(int16_maxCAN, maxFreqCAN);
       }
       break;
-    case 53:
+    case 64:
       if (type == B_UP) {
         clusterRPMLimit = 7000;
         ESPUI.updateSlider(int16_clusterRPM, clusterRPMLimit);
       }
       break;
-    case 58:
+    case 69:
       if (type == B_UP) {
         maxRPM = 230;
         ESPUI.updateSlider(int16_RPMScaling, maxRPM);
