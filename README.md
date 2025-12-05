@@ -5,6 +5,9 @@ It has multiple input types - like Hall, GPS or CAN, it is designed to take thes
 
 If provided with a CAN interface, it can capture engine RPM and output this as a traditional coil based ignition output.
 
+### Purchase
+If you want to purchase an assembled SpeedPulser Pro, you can do so here: [SpeedPulser Pro - Forbes Automotive](https://forbes-automotive.com/products/speedpulser-pro)
+
 ## Basic Wiring
 Only three wires are required to operate the SpeedPulser:
 
